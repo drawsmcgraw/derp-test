@@ -1,0 +1,4 @@
+.terraform*
+terraform.tfstate*
+plan
+ssh-key.pem
