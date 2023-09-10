@@ -1,5 +1,5 @@
 provider "aws" {
-  region = "us-east-2"  # Replace with your desired AWS region
+  region = var.aws_region  # Replace with your desired AWS region
 }
 
 resource "aws_vpc" "workstation-vpc" {
@@ -13,7 +13,7 @@ resource "aws_vpc" "workstation-vpc" {
 resource "aws_subnet" "public_subnet" {
   vpc_id                  = aws_vpc.workstation-vpc.id
   cidr_block              = "10.0.1.0/24"
-  availability_zone       = "us-east-2a"  # Replace with your desired availability zone
+  availability_zone       = "us-west-2a"  # Replace with your desired availability zone
 
   tags = {
     Name = "workstation-public-subnet"
@@ -104,6 +104,21 @@ resource "aws_instance" "workstation-ec2" {
   user_data = <<-EOL
   #!/bin/bash 
   touch /opt/oh-no-mongo.txt
+  curl -JLO https://repo.mongodb.org/apt/ubuntu/dists/focal/mongodb-org/5.0/multiverse/binary-amd64/mongodb-org-server_5.0.20_amd64.deb
+  curl -JLO https://repo.mongodb.org/apt/ubuntu/dists/focal/mongodb-org/5.0/multiverse/binary-amd64/mongodb-org-shell_5.0.20_amd64.deb
+  dpkg -i mongodb-org-server_5.0.20_amd64.deb
+  dpkg -i mongodb-org-shell_5.0.20_amd64.deb
+  sed -i 's/#security:/security:\n  authorization: enabled/' /etc/mongod.conf
+  systemctl start mongod
+
+  # Create an admin user
+  mongo admin --eval "db.createUser({ user: 'admin', pwd: 'superSecret', roles: [ { role: 'root', db: 'admin' } ] })"
+
+  # Create a database and user
+  mongo app --eval "db.createUser({ user: 'app', pwd: 'appPassword', roles: ['readWrite'] })"
+
+  # Restart MongoDB
+  sudo systemctl restart mongod
 
   #apt update
   #apt install openjdk-8-jdk --yes
