@@ -72,6 +72,13 @@ resource "aws_security_group" "workstation-sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  ingress {
+    from_port   = 27017
+    to_port     = 27017
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -103,31 +110,32 @@ resource "aws_instance" "workstation-ec2" {
 
   user_data = <<-EOL
   #!/bin/bash 
+
+  # dial tone
   touch /opt/oh-no-mongo.txt
+
+  # fetch and install mongo
   curl -JLO https://repo.mongodb.org/apt/ubuntu/dists/focal/mongodb-org/5.0/multiverse/binary-amd64/mongodb-org-server_5.0.20_amd64.deb
   curl -JLO https://repo.mongodb.org/apt/ubuntu/dists/focal/mongodb-org/5.0/multiverse/binary-amd64/mongodb-org-shell_5.0.20_amd64.deb
   dpkg -i mongodb-org-server_5.0.20_amd64.deb
   dpkg -i mongodb-org-shell_5.0.20_amd64.deb
+
+  # turn on auth and listen on all interfaces
   sed -i 's/#security:/security:\n  authorization: enabled/' /etc/mongod.conf
+  sed -i 's/bindIp: 127.0.0.1/bindIp: 0.0.0.0' /etc/mongod.conf
   systemctl start mongod
+
+  # hack
+  sleep 5
 
   # Create an admin user
   mongo admin --eval "db.createUser({ user: 'admin', pwd: 'superSecret', roles: [ { role: 'root', db: 'admin' } ] })"
 
   # Create a database and user
-  mongo app --eval "db.createUser({ user: 'app', pwd: 'appPassword', roles: ['readWrite'] })"
+  #mongo -u admin -p superSecret --eval "db.createCollection('app')"
+  #mongo app --eval "db.createUser({ user: 'app', pwd: 'appPassword', roles: ['readWrite'] })"
 
-  # Restart MongoDB
   sudo systemctl restart mongod
-
-  #apt update
-  #apt install openjdk-8-jdk --yes
-  #wget -q -O - https://pkg.jenkins.io/debian/jenkins.io.key | sudo apt-key add -
-  #echo "deb https://pkg.jenkins.io/debian binary/" >> /etc/apt/sources.list
-  #apt update
-  #apt install -y jenkins
-  #systemctl status jenkins
-  #find /usr/lib/jvm/java-1.8* | head -n 3  
   EOL
 }
 
