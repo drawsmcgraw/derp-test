@@ -1,5 +1,5 @@
 provider "aws" {
-  region = var.aws_region  # Replace with your desired AWS region
+  region = var.aws_region  
 }
 
 resource "aws_vpc" "workstation-vpc" {
@@ -13,7 +13,7 @@ resource "aws_vpc" "workstation-vpc" {
 resource "aws_subnet" "public_subnet" {
   vpc_id                  = aws_vpc.workstation-vpc.id
   cidr_block              = "10.0.1.0/24"
-  availability_zone       = "us-west-2a"  # Replace with your desired availability zone
+  availability_zone       = "us-west-2a"  
 
   tags = {
     Name = "workstation-public-subnet"
@@ -94,9 +94,12 @@ resource "aws_security_group" "workstation-sg" {
 resource "aws_instance" "workstation-ec2" {
   ami                    = var.workstation_ami_id  
   instance_type          = "t3.large"
-  key_name               = var.ssh_key     # Replace with your key pair name
+  key_name               = var.ssh_key     
   vpc_security_group_ids = [aws_security_group.workstation-sg.id]
   subnet_id              = aws_subnet.public_subnet.id
+  iam_instance_profile   = aws_iam_instance_profile.s3-write-profile.name  
+
+
 
   root_block_device {
     volume_size = 500
@@ -108,35 +111,7 @@ resource "aws_instance" "workstation-ec2" {
     volume_type = "gp3"
   }
 
-  user_data = <<-EOL
-  #!/bin/bash 
-
-  # dial tone
-  touch /opt/oh-no-mongo.txt
-
-  # fetch and install mongo
-  curl -JLO https://repo.mongodb.org/apt/ubuntu/dists/focal/mongodb-org/5.0/multiverse/binary-amd64/mongodb-org-server_5.0.20_amd64.deb
-  curl -JLO https://repo.mongodb.org/apt/ubuntu/dists/focal/mongodb-org/5.0/multiverse/binary-amd64/mongodb-org-shell_5.0.20_amd64.deb
-  dpkg -i mongodb-org-server_5.0.20_amd64.deb
-  dpkg -i mongodb-org-shell_5.0.20_amd64.deb
-
-  # turn on auth and listen on all interfaces
-  sed -i 's/#security:/security:\n  authorization: enabled/' /etc/mongod.conf
-  sed -i 's/bindIp: 127.0.0.1/bindIp: 0.0.0.0' /etc/mongod.conf
-  systemctl start mongod
-
-  # hack
-  sleep 5
-
-  # Create an admin user
-  mongo admin --eval "db.createUser({ user: 'admin', pwd: 'superSecret', roles: [ { role: 'root', db: 'admin' } ] })"
-
-  # Create a database and user
-  #mongo -u admin -p superSecret --eval "db.createCollection('app')"
-  #mongo app --eval "db.createUser({ user: 'app', pwd: 'appPassword', roles: ['readWrite'] })"
-
-  sudo systemctl restart mongod
-  EOL
+  user_data = data.cloudinit_config.mongo-files.rendered
 }
 
 resource "aws_eip" "workstation-eip" {
@@ -151,3 +126,31 @@ resource "aws_eip" "workstation-eip" {
 output "elastic_ip" {
   value = aws_eip.workstation-eip.public_ip
 }
+
+
+# cloud-init config for user-data scrit and backup script
+data "cloudinit_config" "mongo-files" {
+  gzip          = false
+  base64_encode = false
+
+  part {
+    content_type = "text/x-shellscript"
+    content = file("user-data.sh")
+  }
+
+  part {
+    content_type = "text/cloud-config"
+    filename     = "cloud.conf"
+    content = yamlencode(
+      {
+        "write_files" : [
+          {
+            "path" : "/opt/backup-mongo.sh",
+            "content" : file("backup-mongo.sh"),
+          }
+        ],
+      }
+    )
+  }
+}
+
