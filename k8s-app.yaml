@@ -12,14 +12,15 @@ spec:
       labels:
         app: app
     spec:
+      serviceAccountName: app-sa
       containers:
         - name: app-container
-          image: drawsmcgraw/tasky
+          image: drawsmcgraw/tasky-alpine
           ports:
             - containerPort: 8080
           env:
             - name: MONGODB_URI 
-              value: 'mongodb://admin:superSecret@44.228.98.95:27017'
+              value: 'mongodb://admin:password@<ip>'
             - name: SECRET_KEY 
               value: 'doNotLoseThis'
 ---
@@ -31,7 +32,6 @@ spec:
   selector:
     app: app
   ports:
-    - protocol: TCP
-      port: 8080
+    - port: 80
       targetPort: 8080
   type: LoadBalancer

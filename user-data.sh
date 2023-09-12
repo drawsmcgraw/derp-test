@@ -21,11 +21,6 @@ sleep 5
 
 # Create an admin user
 mongo admin --eval "db.createUser({ user: 'admin', pwd: 'superSecret', roles: [ { role: 'root', db: 'admin' } ] })"
-
-# Create a database and user
-#mongo -u admin -p superSecret --eval "db.createCollection('app')"
-#mongo app --eval "db.createUser({ user: 'app', pwd: 'appPassword', roles: ['readWrite'] })"
-
 sudo systemctl restart mongod
 
 # install awscli
@@ -37,7 +32,8 @@ unzip awscliv2.zip
 
 # configure nightly mongodb backups (2am).
 # The cloud-init config drops this file for us.
-echo '0  2    * * *   root    /bin/bash' > /opt/backup-mongo.sh
+echo '0  2    * * *   root    /bin/bash /opt/backup-mongo.sh' >> /etc/crontab
 
 # run it once
-./opt/backup-mongo.sh
+chmod +x /opt/backup-mongo.sh
+/opt/backup-mongo.sh
