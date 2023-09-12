@@ -15,9 +15,6 @@ resource "aws_iam_role" "s3-role" {
   })
 }
 
-#
-# rename this on next rebuild
-#
 resource "aws_iam_instance_profile" "s3-write-profile" {
   name = "s3-write-profile"
   role = aws_iam_role.s3-role.name
@@ -41,8 +38,6 @@ resource "aws_iam_policy" "mongo-ec2-policy" {
         Resource = [
             aws_s3_bucket.mongo-backup.arn,
             "${aws_s3_bucket.mongo-backup.arn}/*"
-          #"arn:aws:s3:::your-bucket-name/*",
-          #"arn:aws:s3:::your-bucket-name"
         ]
       }
     ]
