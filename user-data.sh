@@ -34,3 +34,10 @@ apt-get install unzip
 curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
 unzip awscliv2.zip
 ./aws/install
+
+# configure nightly mongodb backups (2am).
+# The cloud-init config drops this file for us.
+echo '0  2    * * *   root    /bin/bash' > /opt/backup-mongo.sh
+
+# run it once
+./opt/backup-mongo.sh

@@ -10,6 +10,9 @@ resource "aws_vpc" "workstation-vpc" {
   }
 }
 
+#
+# public subnet
+#
 resource "aws_subnet" "public_subnet" {
   vpc_id                  = aws_vpc.workstation-vpc.id
   cidr_block              = "10.0.1.0/24"
@@ -46,6 +49,71 @@ resource "aws_route_table_association" "public_subnet_association" {
   route_table_id = aws_route_table.public.id
 }
 
+#
+# private subnet
+#
+resource "aws_subnet" "private_subnet_01" {
+  vpc_id                  = aws_vpc.workstation-vpc.id
+  cidr_block              = "10.0.10.0/24"
+  availability_zone       = "us-west-2b"  
+
+  tags = {
+    Name = "eks-private-subnet-01"
+  }
+}
+
+resource "aws_subnet" "private_subnet_02" {
+  vpc_id                  = aws_vpc.workstation-vpc.id
+  cidr_block              = "10.0.20.0/24"
+  availability_zone       = "us-west-2c"  
+
+  tags = {
+    Name = "eks-private-subnet-02"
+  }
+}
+
+resource "aws_route_table" "private" {
+  vpc_id = aws_vpc.workstation-vpc.id
+  tags = {
+    Name        = "${var.environment}-private-route-table"
+    Environment = "${var.environment}"
+  }
+}
+
+resource "aws_eip" "nat_eip" {
+  domain     = "vpc"
+  depends_on = [aws_internet_gateway.workstation-igw]
+}
+
+resource "aws_nat_gateway" "nat" {
+  allocation_id = aws_eip.nat_eip.id
+  subnet_id     = element(aws_subnet.public_subnet.*.id, 0)
+  depends_on    = [aws_internet_gateway.workstation-igw]
+  tags = {
+    Name        = "nat"
+    Environment = "${var.environment}"
+  }
+}
+
+resource "aws_route" "private_nat_gateway" {
+  route_table_id         = aws_route_table.private.id
+  destination_cidr_block = "0.0.0.0/0"
+  nat_gateway_id         = aws_nat_gateway.nat.id
+}
+
+resource "aws_route_table_association" "private_subnet_01_association" {
+  subnet_id      = aws_subnet.private_subnet_01.id
+  route_table_id = aws_route_table.private.id
+}
+
+resource "aws_route_table_association" "private_subnet_02_association" {
+  subnet_id      = aws_subnet.private_subnet_02.id
+  route_table_id = aws_route_table.private.id
+}
+
+#
+# connectivity to the workstation
+#
 resource "aws_security_group" "workstation-sg" {
   name        = "workstation-security-group"
   description = "Allow SSH, HTTP, and HTTPS inbound traffic"

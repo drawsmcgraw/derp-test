@@ -3,6 +3,11 @@ variable "aws_region" {
   default = "us-west-2"
 }
 
+variable "environment" {
+  type    = string
+  default = "derp"
+}
+
 variable "ssh_key" {
   type    = string
   default = "kronk"
